@@ -885,20 +885,7 @@ function renderReports(){
       </select>
       <button class="btn btn-secondary btn-sm" onclick="showMarkMonthDialog()" style="margin-left:8px">✓ Monat abrechnen</button>
     </div>
-    <div id="mark-month-dialog" style="display:none;background:var(--amber-bg);border:1px solid #f0c040;border-radius:var(--radius);padding:14px 16px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--amber)">Monat als abgerechnet markieren</div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <select id="mark-year" style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px">
-          ${[2024,2025,2026].map(y=>`<option value="${y}"${y===rptYear?' selected':''}>${y}</option>`).join('')}
-        </select>
-        <select id="mark-month" style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px">
-          ${MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}
-        </select>
-        <button class="btn btn-primary btn-sm" onclick="markMonthInvoiced()">Alle Einträge abrechnen</button>
-        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('mark-month-dialog').style.display='none'">Abbrechen</button>
-      </div>
-      <div id="mark-month-msg" style="margin-top:8px"></div>
-    </div>
+    <div id="mark-month-dialog" style="display:none"></div>
 
     <div class="panel">
       <div class="panel-head">
