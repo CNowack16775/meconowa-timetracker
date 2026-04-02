@@ -470,7 +470,7 @@ const MONTHS_FULL=['Januar','Februar','März','April','Mai','Juni','Juli','Augus
 function today(){return new Date().toISOString().slice(0,10);}
 function monKey(d){const dt=new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');}
 function fmtH(n){return(+n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+'h';}
-function fmtE(n){if(!n&&n!==0)return'—';return'€'+Math.round(n).toLocaleString('de-DE');}
+function fmtE(n){if(!n&&n!==0)return'—';return'€ '+(+n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function fmtDate(s){
   const d=new Date(s+'T12:00:00');
   return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
@@ -637,7 +637,10 @@ function renderOverview(){
                 <td class="num">${fmtH(e.stunden)}</td>
                 <td class="num">${fmtE(e.betrag)}</td>
                 <td><span class="tag ${e.abgerechnet?'tag-green':'tag-amber'}">${e.abgerechnet?'Abgerechnet':'Offen'}</span></td>
-                <td><button class="del-btn" onclick="delEntry('${e.id}',${e.rowIndex})">×</button></td>
+                <td style="white-space:nowrap">
+                  <button class="del-btn" onclick="editEntry('${e.id}',${e.rowIndex})" style="color:var(--accent)" title="Bearbeiten">✎</button>
+                  <button class="del-btn" onclick="delEntry('${e.id}',${e.rowIndex})" title="Löschen">×</button>
+                </td>
               </tr>`).join('')}
           </tbody>
         </table>`}
@@ -730,7 +733,10 @@ function renderEntry(){
                   <td class="muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.taetigkeit||'—'}</td>
                   <td class="num">${fmtH(e.stunden)}</td>
                   <td class="num">${fmtE(e.betrag)}</td>
-                  <td><button class="del-btn" onclick="delEntry('${e.id}',${e.rowIndex})">×</button></td>
+                  <td style="white-space:nowrap">
+                  <button class="del-btn" onclick="editEntry('${e.id}',${e.rowIndex})" style="color:var(--accent)" title="Bearbeiten">✎</button>
+                  <button class="del-btn" onclick="delEntry('${e.id}',${e.rowIndex})" title="Löschen">×</button>
+                </td>
                 </tr>`).join('')}
             </tbody>
           </table>`}
@@ -1012,6 +1018,86 @@ function doExport(){
 }
 
 // ── Actions ───────────────────────────────────────────
+function editEntry(id, idx){
+  const e = entries.find(x=>x.id===id); if(!e) return;
+  // Fill form with existing values
+  go('entry');
+  setTimeout(()=>{
+    const dateEl = document.getElementById('f-date');
+    const typeEl = document.getElementById('f-type');
+    const clientEl = document.getElementById('f-client');
+    const projEl = document.getElementById('f-proj');
+    const hrsEl = document.getElementById('f-hrs');
+    const noteEl = document.getElementById('f-note');
+    if(!dateEl) return;
+
+    dateEl.value = e.datum;
+    hrsEl.value = e.stunden;
+    noteEl.value = e.taetigkeit||'';
+
+    // Detect if admin entry
+    if(e.projektId && CLIENTS.find(c=>c.id===e.projektId)){
+      typeEl.value = 'client';
+      updType();
+      setTimeout(()=>{
+        clientEl.value = e.projektId;
+        updProject();
+        setTimeout(()=>{
+          // Set project
+          const proj = e.projektLabel.includes(' · ') ? e.projektLabel.split(' · ')[1] : '';
+          if(proj && projEl) projEl.value = proj;
+          updCalc();
+        },50);
+      },50);
+    } else {
+      typeEl.value = 'admin';
+      updType();
+    }
+
+    // Change save button to update
+    const btn = document.getElementById('f-btn');
+    const msg = document.getElementById('f-msg');
+    if(btn){
+      btn.textContent = 'Eintrag aktualisieren';
+      btn.onclick = async function(){
+        const newHrs = parseFloat(document.getElementById('f-hrs').value||'0');
+        const newNote = document.getElementById('f-note').value.trim();
+        const newDate = document.getElementById('f-date').value;
+        const newType = document.getElementById('f-type').value;
+        const newCid = document.getElementById('f-client')?.value;
+        const newProj = document.getElementById('f-proj')?.value;
+        if(!newDate||!newHrs||newHrs<=0){ 
+          msg.innerHTML='<div class="msg msg-err">Bitte Datum und Stunden ausfüllen.</div>'; return;
+        }
+        let newLabel, newRate;
+        if(newType==='admin'){
+          newLabel='Admin / Management'; newRate=ADMIN_RATE;
+        } else {
+          const c=CLIENTS.find(x=>x.id===newCid);
+          if(!c){ msg.innerHTML='<div class="msg msg-err">Bitte Kunde wählen.</div>'; return; }
+          newLabel=newProj?`${c.name} · ${newProj}`:c.name;
+          newRate=c.rate;
+        }
+        btn.disabled=true; btn.textContent='Speichert…';
+        try{
+          const updated={...e,datum:newDate,stunden:newHrs,projektId:newType==='admin'?'admin':newCid,
+            projektLabel:newLabel,rate:newRate,betrag:+(newHrs*newRate).toFixed(2),taetigkeit:newNote};
+          await updateRow(idx,updated);
+          await loadEntries();
+          btn.disabled=false; btn.textContent='Eintrag speichern';
+          btn.onclick=submitEntry;
+          msg.innerHTML='<div class="msg msg-ok">✓ Eintrag aktualisiert</div>';
+          setTimeout(()=>{ renderTab('entry'); },1500);
+        }catch(err){
+          msg.innerHTML=`<div class="msg msg-err">Fehler: ${err.message}</div>`;
+          btn.disabled=false; btn.textContent='Eintrag aktualisieren';
+        }
+      };
+      msg.innerHTML='<div class="msg" style="background:#fffbe6;border:1px solid #f0c040;color:#7a5800">Eintrag wird bearbeitet — Änderungen vornehmen und speichern.</div>';
+    }
+  }, 200);
+}
+
 async function delEntry(id,idx){
   if(!confirm('Eintrag wirklich löschen?')) return;
   try{await deleteRow(idx); await loadEntries(); render();}
