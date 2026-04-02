@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MeCoNowa · Zeiterfassung</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+<style>
+  :root {
+    --sidebar-w: 200px;
+    --sidebar-bg: #1f2937;
+    --sidebar-hover: #374151;
+    --sidebar-active: #3b82f6;
+    --sidebar-text: #d1d5db;
+    --sidebar-text2: #9ca3af;
+    --bg: #f9fafb;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --border2: #d1d5db;
+    --text: #111827;
+    --text2: #6b7280;
+    --text3: #9ca3af;
+    --accent: #3b82f6;
+    --accent-h: #2563eb;
+    --green: #059669;
+    --green-bg: #ecfdf5;
+    --red: #dc2626;
+    --red-bg: #fef2f2;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+    --radius: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,.1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+  button,input,select,textarea{font-family:'Inter',sans-serif;}
+  a{color:inherit;text-decoration:none;}
+
+  /* ── LAYOUT ─────────────────────────────────── */
+  #shell{display:flex;min-height:100vh;}
+
+  /* ── SIDEBAR ────────────────────────────────── */
+  .sidebar{
+    width:var(--sidebar-w);flex-shrink:0;
+    background:var(--sidebar-bg);
+    display:flex;flex-direction:column;
+    position:sticky;top:0;height:100vh;overflow-y:auto;
+  }
+  .sb-brand{
+    padding:20px 16px 16px;
+    border-bottom:1px solid rgba(255,255,255,.06);
+  }
+  .sb-logo{
+    display:flex;align-items:center;gap:10px;
+  }
+  .sb-mark{
+    width:28px;height:28px;border-radius:6px;
+    background:var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    color:white;font-size:11px;font-weight:700;letter-spacing:.3px;flex-shrink:0;
+  }
+  .sb-name{font-size:13px;font-weight:600;color:white;line-height:1.2;}
+  .sb-sub{font-size:10px;color:var(--sidebar-text2);margin-top:1px;}
+
+  .sb-nav{padding:8px 0;flex:1;}
+  .sb-section{
+    font-size:10px;font-weight:600;color:var(--sidebar-text2);
+    text-transform:uppercase;letter-spacing:.8px;
+    padding:12px 16px 4px;
+  }
+  .sb-item{
+    display:flex;align-items:center;gap:9px;
+    padding:8px 16px;cursor:pointer;
+    font-size:13px;color:var(--sidebar-text);
+    transition:all .12s;border:none;background:none;width:100%;text-align:left;
+    border-left:2px solid transparent;
+  }
+  .sb-item:hover{background:var(--sidebar-hover);color:white;}
+  .sb-item.active{color:white;background:rgba(59,130,246,.15);border-left-color:var(--accent);}
+  .sb-item .ico{font-size:14px;width:18px;text-align:center;opacity:.8;}
+
+  .sb-foot{
+    padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);
+  }
+  .sb-user{display:flex;align-items:center;gap:9px;}
+  .sb-av{
+    width:26px;height:26px;border-radius:50%;
+    background:var(--accent);color:white;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;flex-shrink:0;
+  }
+  .sb-uname{font-size:12px;font-weight:500;color:var(--sidebar-text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .sb-logout{background:none;border:none;cursor:pointer;color:var(--sidebar-text2);font-size:13px;padding:2px 4px;}
+  .sb-logout:hover{color:white;}
+
+  /* ── MAIN ───────────────────────────────────── */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .topbar{
+    background:var(--surface);border-bottom:1px solid var(--border);
+    padding:0 28px;height:52px;
+    display:flex;align-items:center;justify-content:space-between;
+    position:sticky;top:0;z-index:10;
+  }
+  .page-title{font-size:16px;font-weight:600;}
+  .content{padding:24px 28px;flex:1;}
+
+  /* ── CARDS / PANELS ─────────────────────────── */
+  .panel{
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);box-shadow:var(--shadow);
+    margin-bottom:16px;
+  }
+  .panel-head{
+    padding:14px 20px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .panel-title{font-size:13px;font-weight:600;}
+  .panel-body{padding:20px;}
+
+  /* ── FORM ───────────────────────────────────── */
+  .form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px;}
+  .form-grid-2{grid-template-columns:1fr 1fr;}
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .label{font-size:11px;font-weight:500;color:var(--text2);}
+  .label span{color:var(--red);}
+  input[type=text],input[type=number],input[type=date],select,textarea{
+    padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius);
+    font-size:13px;color:var(--text);background:var(--surface);
+    outline:none;transition:border-color .12s;width:100%;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);}
+  textarea{resize:vertical;min-height:48px;}
+  .rate-info{
+    padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);
+    font-size:13px;color:var(--text2);background:var(--bg);
+  }
+
+  /* ── BUTTONS ────────────────────────────────── */
+  .btn{
+    padding:7px 16px;border-radius:var(--radius);font-size:13px;font-weight:500;
+    cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;
+    transition:all .12s;
+  }
+  .btn-primary{background:var(--accent);color:white;}
+  .btn-primary:hover{background:var(--accent-h);}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-primary.ok{background:var(--green);}
+  .btn-secondary{background:var(--surface);border:1px solid var(--border2);color:var(--text2);}
+  .btn-secondary:hover{border-color:var(--text2);color:var(--text);}
+  .btn-sm{padding:4px 10px;font-size:12px;}
+
+  /* ── TABLE ──────────────────────────────────── */
+  .tbl{width:100%;border-collapse:collapse;}
+  .tbl th{
+    font-size:11px;font-weight:600;color:var(--text3);
+    text-transform:uppercase;letter-spacing:.5px;
+    padding:8px 12px;text-align:left;
+    border-bottom:1px solid var(--border);background:var(--bg);
+  }
+  .tbl td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
+  .tbl tr:last-child td{border-bottom:none;}
+  .tbl tr:hover td{background:#f9fafb;}
+  .tbl .num{text-align:right;font-variant-numeric:tabular-nums;}
+  .tbl .muted{color:var(--text3);}
+  .tbl .proj{color:var(--accent);font-weight:500;}
+  .del-btn{
+    background:none;border:none;cursor:pointer;color:var(--text3);
+    font-size:14px;padding:3px 6px;border-radius:4px;transition:all .12s;
+  }
+  .del-btn:hover{background:var(--red-bg);color:var(--red);}
+
+  /* ── TAGS ───────────────────────────────────── */
+  .tag{
+    display:inline-flex;align-items:center;padding:2px 8px;
+    border-radius:20px;font-size:11px;font-weight:500;
+  }
+  .tag-green{background:var(--green-bg);color:var(--green);}
+  .tag-amber{background:var(--amber-bg);color:var(--amber);}
+  .tag-blue{background:#eff6ff;color:var(--accent);}
+
+  /* ── REPORT ─────────────────────────────────── */
+  .report-controls{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+  .monthly-tbl{width:100%;border-collapse:collapse;}
+  .monthly-tbl th{
+    font-size:11px;font-weight:600;color:var(--text3);
+    text-transform:uppercase;letter-spacing:.5px;
+    padding:9px 14px;text-align:right;border-bottom:2px solid var(--border);
+  }
+  .monthly-tbl th:first-child{text-align:left;}
+  .monthly-tbl td{
+    padding:10px 14px;border-bottom:1px solid var(--border);
+    font-size:13px;text-align:right;font-variant-numeric:tabular-nums;
+  }
+  .monthly-tbl td:first-child{text-align:left;font-weight:500;}
+  .monthly-tbl tr:hover td{background:var(--bg);}
+  .monthly-tbl tr.total td{
+    font-weight:600;border-top:2px solid var(--border);border-bottom:none;
+    background:var(--bg);
+  }
+  .monthly-tbl tr.clickable{cursor:pointer;}
+  .monthly-tbl .pos{color:var(--green);}
+  .monthly-tbl .neg{color:var(--red);}
+  .monthly-tbl .dash{color:var(--text3);}
+
+  .drill{
+    background:var(--bg);padding:0;
+  }
+  .drill td{padding:8px 14px 8px 32px !important;font-size:12px;color:var(--text2);}
+
+  .client-block{margin-bottom:20px;}
+  .client-name{
+    font-size:14px;font-weight:600;padding:10px 0 6px;
+    border-bottom:1px solid var(--border);margin-bottom:8px;
+  }
+
+  /* ── CLIENTS PAGE ───────────────────────────── */
+  .clients-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .client-card{
+    border:1px solid var(--border);border-radius:var(--radius);
+    padding:14px 16px;background:var(--surface);
+  }
+  .client-card-name{font-weight:600;font-size:14px;margin-bottom:4px;}
+  .client-card-meta{font-size:12px;color:var(--text3);}
+  .proj-chip{
+    display:inline-flex;align-items:center;
+    background:var(--bg);border:1px solid var(--border);
+    border-radius:20px;padding:2px 10px;font-size:12px;
+    color:var(--text2);margin:4px 4px 0 0;
+  }
+
+  /* ── ADJUSTMENTS ────────────────────────────── */
+  .adj-row{
+    display:flex;align-items:center;gap:12px;
+    padding:10px 0;border-bottom:1px solid var(--border);
+  }
+  .adj-row:last-child{border-bottom:none;}
+
+  /* ── STATUS / LOADING ───────────────────────── */
+  .spinner{
+    width:18px;height:18px;border:2px solid var(--border);
+    border-top-color:var(--accent);border-radius:50%;
+    animation:spin .5s linear infinite;display:inline-block;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loading{text-align:center;padding:48px;color:var(--text3);}
+  .empty{text-align:center;padding:48px;color:var(--text3);}
+  .msg{padding:8px 12px;border-radius:var(--radius);font-size:13px;margin:8px 0;}
+  .msg-ok{background:var(--green-bg);color:var(--green);border:1px solid #a7f3d0;}
+  .msg-err{background:var(--red-bg);color:var(--red);border:1px solid #fca5a5;}
+
+  /* ── LOGIN ──────────────────────────────────── */
+  #login-screen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:var(--sidebar-bg);
+  }
+  .login-box{
+    background:white;border-radius:10px;padding:48px 44px;
+    max-width:380px;width:100%;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  .login-logo{
+    width:52px;height:52px;border-radius:12px;background:var(--accent);
+    color:white;font-size:20px;font-weight:700;
+    display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;
+  }
+  .login-title{font-size:20px;font-weight:600;margin-bottom:4px;}
+  .login-sub{font-size:13px;color:var(--text3);margin-bottom:26px;}
+  .ms-btn{
+    width:100%;padding:10px;border-radius:var(--radius);border:none;
+    background:#0078d4;color:white;font-size:13px;font-weight:500;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;
+  }
+  .ms-btn:hover{background:#006cc1;}
+  .login-err{background:var(--red-bg);color:var(--red);border-radius:6px;padding:9px;font-size:12px;margin-bottom:12px;}
+  .login-note{font-size:11px;color:var(--text3);margin-top:16px;line-height:1.7;}
+
+  /* ── WHO ────────────────────────────────────── */
+  #who-screen{
+    min-height:100vh;display:none;align-items:center;justify-content:center;
+    background:var(--sidebar-bg);
+  }
+  #who-screen.show{display:flex;}
+  .who-box{background:white;border-radius:10px;padding:44px 40px;max-width:340px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+  .who-title{font-size:17px;font-weight:600;margin-bottom:4px;}
+  .who-sub{font-size:12px;color:var(--text3);margin-bottom:20px;}
+  .who-btn{
+    width:100%;display:flex;align-items:center;gap:11px;
+    padding:11px 14px;border-radius:var(--radius);border:1px solid var(--border);
+    background:white;cursor:pointer;margin-bottom:8px;transition:all .12s;
+  }
+  .who-btn:hover{border-color:var(--accent);background:#f0f9ff;}
+  .who-av{width:32px;height:32px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+  .who-name{font-size:13px;font-weight:600;}
+  .who-role{font-size:11px;color:var(--text3);}
+
+  /* ── SETTINGS ───────────────────────────────── */
+  .settings-section { margin-bottom: 28px; }
+  .settings-section h3 { font-size:13px; font-weight:600; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border); }
+  .client-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
+  .client-item {
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px; border:1px solid var(--border);
+    border-radius:var(--radius); background:var(--surface);
+  }
+  .client-item-name { font-weight:600; font-size:13px; flex:1; }
+  .client-item-rate { font-size:12px; color:var(--text3); font-family:monospace; }
+  .client-item-proj { font-size:11px; color:var(--text3); flex:2; }
+  .edit-form {
+    padding:16px; border:1px solid var(--accent);
+    border-radius:var(--radius); background:#f0f9ff; margin-bottom:12px;
+  }
+  .edit-form h4 { font-size:12px; font-weight:600; margin-bottom:12px; color:var(--accent); }
+  .form-row-inline { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
+  .form-row-inline .field { flex:1; min-width:120px; }
+  .tag-input { display:flex; flex-wrap:wrap; gap:6px; padding:6px 8px;
+    border:1px solid var(--border2); border-radius:var(--radius); min-height:36px;
+    background:white; cursor:text; }
+  .tag-input input { border:none; outline:none; font-size:13px; flex:1; min-width:80px; font-family:inherit; }
+  .proj-tag { display:inline-flex; align-items:center; gap:4px; padding:2px 8px;
+    background:#e0f0ff; border-radius:20px; font-size:12px; }
+  .proj-tag button { background:none; border:none; cursor:pointer; color:var(--text3); font-size:14px; line-height:1; padding:0 2px; }
+  .proj-tag button:hover { color:var(--red); }
+  .admin-rate-box { display:flex; align-items:center; gap:12px; padding:12px 16px;
+    background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); }
+
+  @media(max-width:700px){
+    .sidebar{display:none;}
+    .form-grid{grid-template-columns:1fr;}
+    .clients-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     CONFIG (Azure bereits eingetragen)
+     ═══════════════════════════════════════════ -->
+<script>
+const CONFIG = {
+  clientId:    "fed726c8-65d9-48dc-a984-63e1853c9272",
+  tenantId:    "882f8095-e94f-4fd9-95c6-0a5699fe5c90",
+  driveId:     "b!FQOGJ2Jv8k6YcM1CGsMrpZdf0yDpZuRPnGcJAVDeFwdsGlhcA1usQY6Q_btRH_PC",
+  filePath:    "General/Company Admin/MeCoNowa/Time Tracking MeCoNowa/MeCoNowa_data.json",
+  redirectUri: window.location.href.split("?")[0].split("#")[0].replace(/\/$/,''),
+};
+
+// Clients & Projects — loaded from localStorage, editable in settings
+const DEFAULT_CLIENTS = [
+  { id:"absci",      name:"Absci",      projects:["ABS-101","ABS-201"], rate:400 },
+  { id:"lantheus",   name:"Lantheus",   projects:["Lantheus"],          rate:340 },
+  { id:"cinfa",      name:"Cinfa",      projects:["Cinfa"],             rate:450 },
+  { id:"evlabio",    name:"EvlaBio",    projects:["EvlaBio"],           rate:400 },
+  { id:"euler",      name:"Euler",      projects:["Euler"],             rate:400 },
+  { id:"mitodicure", name:"Mitodicure", projects:["Mitodicure"],        rate:340 },
+  { id:"omnivision", name:"OmniVision", projects:["OmniVision"],        rate:340 },
+  { id:"timeteller", name:"TimeTeller", projects:["TimeTeller"],        rate:340 },
+  { id:"bayer",      name:"Bayer",      projects:["Bayer"],             rate:400 },
+];
+function loadClients(){
+  try{
+    const saved = localStorage.getItem('meconowa_clients');
+    return saved ? JSON.parse(saved) : DEFAULT_CLIENTS;
+  }catch{ return DEFAULT_CLIENTS; }
+}
+function saveClients(clients){
+  localStorage.setItem('meconowa_clients', JSON.stringify(clients));
+}
+function loadAdminRate(){
+  try{ return parseInt(localStorage.getItem('meconowa_admin_rate')||'200'); }
+  catch{ return 200; }
+}
+function saveAdminRate(rate){
+  localStorage.setItem('meconowa_admin_rate', String(rate));
+}
+let CLIENTS = loadClients();
+let ADMIN_RATE = loadAdminRate();
+
+const USERS = {
+  christina: { name:"Christina N.", initials:"CN" },
+};
+</script>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">BL</div>
+    <div class="login-title">MeCoNowa Zeiterfassung</div>
+    <div class="login-sub">Christina N. · MeCoNowa GmbH</div>
+    <div id="login-err" class="login-err" style="display:none"></div>
+    <button class="ms-btn" onclick="doLogin()">
+      <svg width="16" height="16" viewBox="0 0 21 21"><rect x="0" y="0" width="10" height="10" fill="#f35325"/><rect x="11" y="0" width="10" height="10" fill="#81bc06"/><rect x="0" y="11" width="10" height="10" fill="#05a6f0"/><rect x="11" y="11" width="10" height="10" fill="#ffba08"/></svg>
+      Mit Microsoft anmelden
+    </button>
+    <div class="login-note">Daten werden sicher in SharePoint gespeichert.<br>MeCoNowa GmbH · Zeiterfassung</div>
+  </div>
+</div>
+
+<!-- who-screen removed -->
+
+<!-- App -->
+<div id="shell" style="display:none">
+  <nav class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">
+        <div class="sb-mark">BL</div>
+        <div>
+          <div class="sb-name">Zeiterfassung</div>
+          <div class="sb-sub">MeCoNowa GmbH</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sb-nav">
+      <div class="sb-section">Zeiterfassung</div>
+      <button class="sb-item" data-tab="overview" onclick="go('overview')">
+        <span class="ico">▦</span>Übersicht
+      </button>
+      <button class="sb-item" data-tab="entry" onclick="go('entry')">
+        <span class="ico">⊕</span>Zeit erfassen
+      </button>
+
+      <div class="sb-section" style="margin-top:8px">Auswertung</div>
+      <button class="sb-item" data-tab="reports" onclick="go('reports')">
+        <span class="ico">◫</span>Reports
+      </button>
+      <button class="sb-item" data-tab="clients" onclick="go('clients')">
+        <span class="ico">⬡</span>Kunden
+      </button>
+
+      <div class="sb-section" style="margin-top:8px">Export</div>
+      <button class="sb-item" data-tab="export" onclick="go('export')">
+        <span class="ico">↓</span>Excel Export
+      </button>
+      <div class="sb-section" style="margin-top:8px">Konfiguration</div>
+      <button class="sb-item" data-tab="settings" onclick="go('settings')">
+        <span class="ico">⚙</span>Einstellungen
+      </button>
+    </div>
+
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-av" id="sb-av">CN</div>
+        <div class="sb-uname" id="sb-uname">Christina N.</div>
+        <button class="sb-logout" onclick="doLogout()" title="Abmelden">↩</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="page-title">Übersicht</div>
+      <div id="topbar-right" style="display:flex;gap:8px;align-items:center"></div>
+    </div>
+    <div class="content" id="content">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────
+let msal_inst=null, entries=[], bioUser=null, tab='overview';
+let rptYear=new Date().getFullYear(), rptPeriod='year', rptGroup='client';
+let drillMonth=null;
+
+const MONTHS=['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const MONTHS_FULL=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+function today(){return new Date().toISOString().slice(0,10);}
+function monKey(d){const dt=new Date(d);return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');}
+function fmtH(n){return(+n||0).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})+'h';}
+function fmtE(n){if(!n&&n!==0)return'—';return'€'+Math.round(n).toLocaleString('de-DE');}
+function fmtDate(s){
+  const d=new Date(s+'T12:00:00');
+  return d.toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function getRate(clientId){return CLIENTS.find(c=>c.id===clientId)?.rate??0;}
+function clientName(id){return CLIENTS.find(c=>c.id===id)?.name??id;}
+
+// ── MSAL ──────────────────────────────────────────────
+function initMsal(){
+  msal_inst=new msal.PublicClientApplication({
+    auth:{clientId:CONFIG.clientId,authority:`https://login.microsoftonline.com/${CONFIG.tenantId}`,redirectUri:CONFIG.redirectUri},
+    cache:{cacheLocation:'sessionStorage'},
+  });
+}
+async function doLogin(){
+  document.getElementById('login-err').style.display='none';
+  try{
+    await msal_inst.loginRedirect({scopes:['User.Read','Files.ReadWrite.All']});
+  }catch(e){
+    const el=document.getElementById('login-err');
+    el.style.display='block'; el.textContent='Anmeldung fehlgeschlagen. Bitte nochmals versuchen.';
+  }
+}
+async function doLogout(){
+  const acc=msal_inst.getAllAccounts()[0];
+  if(acc) await msal_inst.logoutRedirect({account:acc});
+  bioUser=null; entries=[];
+  document.getElementById('shell').style.display='none';
+  document.getElementById('who-screen').classList.remove('show');
+  document.getElementById('login-screen').style.display='flex';
+}
+function switchUser(){
+  document.getElementById('shell').style.display='none';
+  document.getElementById('who-screen').classList.add('show');
+}
+async function getToken(){
+  const acc=msal_inst.getAllAccounts()[0];
+  try{return(await msal_inst.acquireTokenSilent({scopes:['Files.ReadWrite.All'],account:acc})).accessToken;}
+  catch{await msal_inst.acquireTokenRedirect({scopes:['Files.ReadWrite.All'],account:acc}); return null;}
+}
+async function selectUser(uid){
+  bioUser=uid;
+  const whoScreen = document.getElementById('who-screen');
+  if(whoScreen) whoScreen.classList.remove('show');
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('shell').style.display='flex';
+  document.getElementById('sb-av').textContent=USERS[uid].initials;
+  document.getElementById('sb-uname').textContent=USERS[uid].name;
+  go('overview');
+  try{await loadEntries(); render();}
+  catch(e){setContent(`<div class="panel"><div class="panel-body"><div class="msg msg-err">Verbindungsfehler: ${e.message}</div></div></div>`);}
+}
+
+// ── Graph API — JSON file storage ────────────────────────────
+const JSON_URL = () => {
+  const p = CONFIG.filePath.split('/').map(s=>encodeURIComponent(s)).join('/');
+  return `https://graph.microsoft.com/v1.0/drives/${CONFIG.driveId}/root:/${p}:/content`;
+};
+
+async function getJson(){
+  const token = await getToken();
+  const res = await fetch(JSON_URL(), {headers:{'Authorization':`Bearer ${token}`}});
+  if(res.status===404) return null;
+  if(!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function putJson(data){
+  const token = await getToken();
+  const res = await fetch(JSON_URL(), {
+    method:'PUT',
+    headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+    body: JSON.stringify(data)
+  });
+  if(!res.ok){ const t=await res.text(); throw new Error(`HTTP ${res.status}: ${t}`); }
+}
+
+async function loadEntries(){
+  const data = await getJson();
+  entries = data?.entries || [];
+  entries.forEach((e,i)=>e.rowIndex=i);
+}
+
+async function saveAll(){
+  await putJson({entries, updated: new Date().toISOString()});
+}
+
+async function addEntry(e){
+  entries.push({...e, rowIndex: entries.length});
+  await saveAll();
+}
+
+async function deleteRow(idx){
+  entries = entries.filter(e=>e.rowIndex!==idx);
+  entries.forEach((e,i)=>e.rowIndex=i);
+  await saveAll();
+}
+
+async function updateRow(idx, e){
+  const i = entries.findIndex(x=>x.rowIndex===idx);
+  if(i>=0) entries[i] = {...e, rowIndex:idx};
+  await saveAll();
+}
+
+// ── Navigation ────────────────────────────────────────
+function go(t){
+  tab=t;
+  document.querySelectorAll('.sb-item').forEach(el=>{
+    el.classList.toggle('active',el.dataset.tab===t);
+  });
+  const titles={overview:'Übersicht',entry:'Zeit erfassen',
+                reports:'Reports',clients:'Kunden & Projekte',export:'Excel Export',settings:'Einstellungen'};
+  document.getElementById('page-title').textContent=titles[t]||t;
+  document.getElementById('topbar-right').innerHTML='';
+  render();
+}
+function setContent(html){document.getElementById('content').innerHTML=html;}
+function render(){
+  if(tab==='overview')  renderOverview();
+  else if(tab==='entry')   renderEntry();
+  else if(tab==='reports') renderReports();
+  else if(tab==='clients') renderClients();
+  else if(tab==='export')  renderExport();
+  else if(tab==='settings') renderSettings();
+}
+
+// ── OVERVIEW ──────────────────────────────────────────
+function renderOverview(){
+  const mine=entries.filter(e=>e.userId===bioUser);
+  const curMon=new Date().toISOString().slice(0,7);
+  const thisMonth=mine.filter(e=>monKey(e.datum)===curMon);
+  const tH=thisMonth.reduce((s,e)=>s+e.stunden,0);
+  const tA=thisMonth.reduce((s,e)=>s+e.betrag,0);
+  const tO=mine.filter(e=>!e.abgerechnet).reduce((s,e)=>s+e.betrag,0);
+
+  // Last 10 entries
+  const recent=mine.sort((a,b)=>b.datum.localeCompare(a.datum)).slice(0,10);
+
+  setContent(`
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+      ${stat('Dieser Monat',fmtH(tH),'Stunden')}
+      ${stat('Dieser Monat',fmtE(tA),'Umsatz')}
+      ${stat('Nicht abgerechnet',fmtE(tO),'offen',tO>0?'color:var(--amber)':'')}
+      ${stat('Gesamt',fmtH(mine.reduce((s,e)=>s+e.stunden,0)),'alle Zeit')}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Letzte Einträge</div>
+        <button class="btn btn-sm btn-primary" onclick="go('entry')">+ Neuer Eintrag</button>
+      </div>
+      ${recent.length===0?'<div class="empty">Noch keine Einträge.</div>':`
+        <table class="tbl">
+          <thead><tr>
+            <th>Datum</th><th>Kunde · Projekt</th><th>Notiz</th>
+            <th class="num">Stunden</th><th class="num">Betrag</th><th>Status</th><th></th>
+          </tr></thead>
+          <tbody>
+            ${recent.map(e=>`
+              <tr>
+                <td class="muted">${fmtDate(e.datum)}</td>
+                <td class="proj">${e.projektLabel}</td>
+                <td class="muted">${e.taetigkeit||'—'}</td>
+                <td class="num">${fmtH(e.stunden)}</td>
+                <td class="num">${fmtE(e.betrag)}</td>
+                <td><span class="tag ${e.abgerechnet?'tag-green':'tag-amber'}">${e.abgerechnet?'Abgerechnet':'Offen'}</span></td>
+                <td><button class="del-btn" onclick="delEntry('${e.id}',${e.rowIndex})">×</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`}
+    </div>`);
+}
+
+function stat(label,val,sub,style=''){
+  return`<div class="panel" style="margin:0">
+    <div class="panel-body" style="padding:16px">
+      <div style="font-size:11px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${label}</div>
+      <div style="font-size:22px;font-weight:600;${style}">${val}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${sub}</div>
+    </div>
+  </div>`;
+}
+
+// ── ENTRY ─────────────────────────────────────────────
+function renderEntry(){
+  const recent=entries.filter(e=>e.userId===bioUser).sort((a,b)=>b.datum.localeCompare(a.datum)).slice(0,15);
+  setContent(`
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;align-items:start">
+      <div class="panel" style="margin:0">
+        <div class="panel-head"><div class="panel-title">Zeit erfassen</div></div>
+        <div class="panel-body">
+          <div class="form-grid form-grid-2" style="margin-bottom:12px">
+            <div class="field">
+              <div class="label">Mitarbeiter</div>
+              <div style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;background:var(--bg)">
+                ${USERS[bioUser].name}
+              </div>
+            </div>
+            <div class="field">
+              <div class="label">Datum <span>*</span></div>
+              <input type="date" id="f-date" value="${today()}">
+            </div>
+          </div>
+          <div class="form-grid form-grid-2" style="margin-bottom:12px">
+            <div class="field">
+              <div class="label">Typ <span>*</span></div>
+              <select id="f-type" onchange="updType()">
+                <option value="client">Klientarbeit</option>
+                <option value="admin">Admin / Management (€ ${ADMIN_RATE}/h)</option>
+              </select>
+            </div>
+            <div class="field" id="f-client-wrap">
+              <div class="label">Kunde <span>*</span></div>
+              <select id="f-client" onchange="updProject()">
+                <option value="">– Kunde wählen –</option>
+                ${CLIENTS.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="form-grid form-grid-2" style="margin-bottom:12px" id="f-proj-wrap">
+            <div class="field">
+              <div class="label">Projekt</div>
+              <select id="f-proj"><option value="">– allgemein –</option></select>
+            </div>
+            <div></div>
+          </div>
+          <div class="form-grid form-grid-2" style="margin-bottom:12px">
+            <div class="field">
+              <div class="label">Stunden <span>*</span></div>
+              <input type="number" id="f-hrs" step="0.25" min="0.25" max="24" placeholder="z.B. 2.5" oninput="updCalc()">
+            </div>
+            <div class="field">
+              <div class="label">Rate (info)</div>
+              <div class="rate-info" id="f-rate">—</div>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:14px">
+            <div class="label">Notiz</div>
+            <input type="text" id="f-note" placeholder="Optionale Beschreibung">
+          </div>
+          <div id="f-calc" style="display:none;font-size:13px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)"></div>
+          <div id="f-msg"></div>
+          <button class="btn btn-primary" style="width:100%" id="f-btn" onclick="submitEntry()">Eintrag speichern</button>
+        </div>
+      </div>
+
+      <div class="panel" style="margin:0">
+        <div class="panel-head"><div class="panel-title">Letzte Einträge</div></div>
+        ${recent.length===0?'<div class="empty">Noch keine Einträge.</div>':`
+          <table class="tbl">
+            <thead><tr><th>Datum</th><th>Kunde · Projekt</th><th>Notiz</th><th class="num">Stunden</th><th class="num">Betrag</th><th></th></tr></thead>
+            <tbody>
+              ${recent.map(e=>`
+                <tr>
+                  <td class="muted" style="white-space:nowrap">${fmtDate(e.datum)}</td>
+                  <td class="proj">${e.projektLabel}</td>
+                  <td class="muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.taetigkeit||'—'}</td>
+                  <td class="num">${fmtH(e.stunden)}</td>
+                  <td class="num">${fmtE(e.betrag)}</td>
+                  <td><button class="del-btn" onclick="delEntry('${e.id}',${e.rowIndex})">×</button></td>
+                </tr>`).join('')}
+            </tbody>
+          </table>`}
+      </div>
+    </div>`);
+}
+
+function updType(){
+  const type=document.getElementById('f-type')?.value;
+  const clientWrap=document.getElementById('f-client-wrap');
+  const projWrap=document.getElementById('f-proj-wrap');
+  const rateEl=document.getElementById('f-rate');
+  if(type==='admin'){
+    if(clientWrap) clientWrap.style.display='none';
+    if(projWrap) projWrap.style.display='none';
+    if(rateEl) rateEl.textContent=`€ ${ADMIN_RATE} / h`;
+  } else {
+    if(clientWrap) clientWrap.style.display='';
+    if(projWrap) projWrap.style.display='';
+    updProject();
+  }
+  updCalc();
+}
+function updProject(){
+  const cid=document.getElementById('f-client')?.value;
+  const client=CLIENTS.find(c=>c.id===cid);
+  const sel=document.getElementById('f-proj');
+  if(sel){
+    sel.innerHTML='<option value="">– allgemein –</option>';
+    if(client) client.projects.forEach(p=>{
+      const o=document.createElement('option'); o.value=p; o.textContent=p; sel.appendChild(o);
+    });
+  }
+  const rate_el=document.getElementById('f-rate');
+  if(rate_el) rate_el.textContent=client?`€ ${client.rate} / h`:'—';
+  updCalc();
+}
+function updCalc(){
+  const type=document.getElementById('f-type')?.value||'client';
+  const cid=document.getElementById('f-client')?.value;
+  const hrs=parseFloat(document.getElementById('f-hrs')?.value||'0');
+  const rate=type==='admin'?ADMIN_RATE:getRate(cid);
+  const el=document.getElementById('f-calc');
+  if(!el) return;
+  if(hrs>0&&rate>0){
+    el.style.display='block';
+    el.innerHTML=`${hrs.toLocaleString('de-DE',{minimumFractionDigits:2})} h × € ${rate} = <strong style="color:var(--accent)">${fmtE(hrs*rate)}</strong>`;
+  } else el.style.display='none';
+}
+
+async function submitEntry(){
+  const date=document.getElementById('f-date').value;
+  const cid=document.getElementById('f-client').value;
+  const proj=document.getElementById('f-proj').value;
+  const hrs=parseFloat(document.getElementById('f-hrs').value||'0');
+  const note=document.getElementById('f-note').value.trim();
+  const msg=document.getElementById('f-msg');
+  const btn=document.getElementById('f-btn');
+  const _type=document.getElementById('f-type')?.value||'client';
+  if(!date||(!cid&&_type==='client')||!hrs||hrs<=0){
+    msg.innerHTML='<div class="msg msg-err">Bitte Datum, Kunde und Stunden ausfüllen.</div>'; return;
+  }
+  const type=document.getElementById('f-type')?.value||'client';
+  let label, rate;
+  if(type==='admin'){
+    label='Admin / Management'; rate=ADMIN_RATE;
+  } else {
+    const client=CLIENTS.find(c=>c.id===cid);
+    if(!client){ msg.innerHTML='<div class="msg msg-err">Bitte Kunde wählen.</div>'; return; }
+    label=proj?`${client.name} · ${proj}`:client.name;
+    rate=client.rate;
+  }
+  const entry={
+    id:Date.now().toString(36)+Math.random().toString(36).slice(2,5),
+    datum:date,userId:bioUser,userName:USERS[bioUser].name,
+    projektId:cid,projektLabel:label,stunden:hrs,rate,
+    betrag:+(hrs*rate).toFixed(2),taetigkeit:note,abgerechnet:false,
+    erstelltAm:new Date().toISOString(),
+  };
+  btn.disabled=true; btn.textContent='Speichert…';
+  try{
+    await addEntry(entry); await loadEntries();
+    btn.classList.add('ok'); btn.textContent='✓ Gespeichert';
+    document.getElementById('f-hrs').value='';
+    document.getElementById('f-note').value='';
+    updCalc();
+    msg.innerHTML=`<div class="msg msg-ok">${hrs} h auf ${label} · ${fmtE(hrs*rate)}</div>`;
+    setTimeout(()=>{btn.classList.remove('ok');btn.textContent='Eintrag speichern';btn.disabled=false;},2200);
+  }catch(e){
+    msg.innerHTML=`<div class="msg msg-err">Fehler: ${e.message}</div>`;
+    btn.disabled=false; btn.textContent='Eintrag speichern';
+  }
+}
+
+// ── REPORTS ───────────────────────────────────────────
+function renderReports(){
+  const mine=entries.filter(e=>e.userId===bioUser&&new Date(e.datum).getFullYear()===rptYear);
+
+  // Monthly totals
+  const byMonth={};
+  mine.forEach(e=>{
+    const m=new Date(e.datum).getMonth();
+    if(!byMonth[m]) byMonth[m]={h:0,rev:0,entries:[]};
+    byMonth[m].h+=e.stunden; byMonth[m].rev+=e.betrag;
+    byMonth[m].entries.push(e);
+  });
+
+  const tH=mine.reduce((s,e)=>s+e.stunden,0);
+  const tA=mine.reduce((s,e)=>s+e.betrag,0);
+
+  const reportExport=()=>{
+    document.getElementById('topbar-right').innerHTML=
+      `<button class="btn btn-secondary btn-sm" onclick="go('export')">↓ Export</button>`;
+  };
+  reportExport();
+
+  const rows=MONTHS.map((m,i)=>{
+    const d=byMonth[i];
+    if(!d) return`<tr><td>${m}</td><td class="num dash">—</td><td class="num dash">—</td><td class="num dash">—</td><td class="num dash">—</td><td class="num dash">—</td></tr>`;
+    const isDrill=drillMonth===i;
+    const drillRows=isDrill?d.entries.sort((a,b)=>b.datum.localeCompare(a.datum)).map(e=>`
+      <tr class="drill"><td colspan="2">${fmtDate(e.datum)}</td>
+      <td>${e.projektLabel}</td><td>${e.taetigkeit||'—'}</td>
+      <td class="num">${fmtH(e.stunden)}</td><td class="num">${fmtE(e.betrag)}</td></tr>`).join(''):'';
+    return`<tr class="clickable" onclick="drillMonth=${isDrill?'null':i};renderReports()">
+      <td>${m}${isDrill?' ▲':' ▼'}</td>
+      <td class="num">${fmtH(d.h)}</td>
+      <td class="num">${fmtE(d.rev)}</td>
+      <td class="num dash">—</td>
+      <td class="num dash">—</td>
+      <td class="num">${fmtE(d.rev)}</td>
+    </tr>${drillRows}`;
+  }).join('');
+
+  // By client
+  const byClient={};
+  mine.forEach(e=>{
+    if(!byClient[e.projektId]) byClient[e.projektId]={name:e.projektLabel.split(' · ')[0]||e.projektLabel,h:0,rev:0};
+    byClient[e.projektId].h+=e.stunden; byClient[e.projektId].rev+=e.betrag;
+  });
+
+  setContent(`
+    <div class="report-controls">
+      <select onchange="rptYear=+this.value;renderReports()" style="padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:13px">
+        ${[2024,2025,2026].map(y=>`<option value="${y}"${y===rptYear?' selected':''}>${y}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">Monatsübersicht ${rptYear} <span style="font-size:11px;color:var(--text3);font-weight:400">(Klicken zum Aufklappen)</span></div>
+      </div>
+      <table class="monthly-tbl">
+        <thead><tr>
+          <th>Monat</th><th>Stunden</th><th>Umsatz</th>
+          <th>+ Einnahmen</th><th>− Ausgaben</th><th>Total netto</th>
+        </tr></thead>
+        <tbody>
+          ${rows}
+          <tr class="total">
+            <td>Total</td>
+            <td>${fmtH(tH)}</td>
+            <td>${fmtE(tA)}</td>
+            <td class="pos">+€0</td>
+            <td class="neg">—</td>
+            <td>${fmtE(tA)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    ${Object.keys(byClient).length?`
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Nach Kunde · ${rptYear}</div></div>
+      <table class="tbl">
+        <thead><tr><th>Kunde / Projekt</th><th class="num">Stunden</th><th class="num">Umsatz</th></tr></thead>
+        <tbody>
+          ${Object.values(byClient).sort((a,b)=>b.rev-a.rev).map(c=>`
+            <tr>
+              <td class="proj">${c.name}</td>
+              <td class="num">${fmtH(c.h)}</td>
+              <td class="num">${fmtE(c.rev)}</td>
+            </tr>`).join('')}
+          <tr style="font-weight:600;border-top:2px solid var(--border)">
+            <td>Gesamt</td>
+            <td class="num">${fmtH(tH)}</td>
+            <td class="num">${fmtE(tA)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`:''}
+  `);
+}
+
+// ── CLIENTS ───────────────────────────────────────────
+function renderClients(){
+  setContent(`
+    <div class="clients-grid">
+      ${CLIENTS.map(c=>`
+        <div class="client-card">
+          <div style="display:flex;justify-content:space-between;align-items:start">
+            <div>
+              <div class="client-card-name">${c.name}</div>
+              <div class="client-card-meta">€ ${c.rate}.00 / h</div>
+            </div>
+            <span class="tag tag-blue">${c.projects.length} Projekt${c.projects.length!==1?'e':''}</span>
+          </div>
+          <div style="margin-top:10px">
+            ${c.projects.map(p=>`<span class="proj-chip">${p}</span>`).join('')}
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--text3)">
+            ${entries.filter(e=>e.userId===bioUser&&e.projektId===c.id).reduce((s,e)=>s+e.stunden,0).toLocaleString('de-DE',{minimumFractionDigits:1})} h erfasst gesamt
+          </div>
+        </div>`).join('')}
+    </div>
+    <div style="margin-top:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;color:var(--text3)">
+      Kunden und Raten in der HTML-Datei im Abschnitt CLIENTS anpassen (oben im Quellcode).
+    </div>`);
+}
+
+// ── EXPORT ────────────────────────────────────────────
+function renderExport(){
+  const years=[...new Set(entries.filter(e=>e.userId===bioUser).map(e=>new Date(e.datum).getFullYear()))].sort().reverse();
+  const allMonths=[...new Set(entries.filter(e=>e.userId===bioUser).map(e=>monKey(e.datum)))].sort().reverse();
+  setContent(`
+    <div class="panel" style="max-width:500px">
+      <div class="panel-head"><div class="panel-title">Excel Export</div></div>
+      <div class="panel-body">
+        <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:18px">
+          Exportiert alle Einträge als CSV-Datei (Semikolon-getrennt, UTF-8).<br>
+          In Excel öffnen: Daten → Aus Text/CSV → Trennzeichen: Semikolon.
+        </p>
+        <div class="form-grid form-grid-2" style="margin-bottom:18px">
+          <div class="field">
+            <div class="label">Jahr</div>
+            <select id="ex-year">
+              <option value="all">Alle Jahre</option>
+              ${years.map(y=>`<option value="${y}">${y}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <div class="label">Monat</div>
+            <select id="ex-mon">
+              <option value="all">Alle Monate</option>
+              ${allMonths.map(m=>{
+                const[y,mo]=m.split('-');
+                return`<option value="${m}">${MONTHS[parseInt(mo)-1]} ${y}</option>`;
+              }).join('')}
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="doExport()">↓ CSV herunterladen</button>
+        <div style="margin-top:14px;padding:10px 12px;background:var(--bg);border-radius:var(--radius);border-left:3px solid var(--accent);font-size:12px;color:var(--text3);line-height:1.7">
+          <strong>Hinweis:</strong> Die Rohdaten sind auch direkt live in der Excel-Datei auf SharePoint sichtbar — ohne Download.
+        </div>
+      </div>
+    </div>`);
+}
+
+function doExport(){
+  const yr=document.getElementById('ex-year').value;
+  const mo=document.getElementById('ex-mon').value;
+  const filtered=entries.filter(e=>{
+    if(e.userId!==bioUser) return false;
+    if(yr!=='all'&&new Date(e.datum).getFullYear()!==+yr) return false;
+    if(mo!=='all'&&monKey(e.datum)!==mo) return false;
+    return true;
+  }).sort((a,b)=>b.datum.localeCompare(a.datum));
+  const hdr=['Datum','Kunde / Projekt','Person','Stunden','Rate','Betrag (€)','Notiz','Abgerechnet'];
+  const rows=filtered.map(e=>[
+    e.datum,e.projektLabel,e.userName,
+    e.stunden.toString().replace('.',','),e.rate,e.betrag.toString().replace('.',','),
+    '"'+(e.taetigkeit||'').replace(/"/g,'""')+'"',e.abgerechnet?'Ja':'Nein'
+  ]);
+  const csv='\uFEFF'+[hdr,...rows].map(r=>r.join(';')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`BioLink_Zeiten_${today()}.csv`; a.click();
+}
+
+// ── Actions ───────────────────────────────────────────
+async function delEntry(id,idx){
+  if(!confirm('Eintrag wirklich löschen?')) return;
+  try{await deleteRow(idx); await loadEntries(); render();}
+  catch(e){alert('Fehler: '+e.message);}
+}
+
+
+// ── SETTINGS
+function renderSettings(){
+  setContent(`
+    <div style="max-width:700px">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Admin / Management Rate</div></div>
+        <div class="panel-body">
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0">
+            <span style="font-size:13px;color:var(--text2)">Stundensatz Admin &amp; Management:</span>
+            <input type="number" id="admin-rate-inp" value="${ADMIN_RATE}" style="width:90px;padding:7px 10px;border:1px solid var(--border2);border-radius:var(--radius);font-size:14px;font-weight:600">
+            <span style="font-size:13px;color:var(--text2)">EUR / h</span>
+            <button class="btn btn-primary btn-sm" onclick="saveAdminRateUI()">Speichern</button>
+          </div>
+          <div id="admin-rate-msg"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Kunden</div>
+          <button class="btn btn-primary btn-sm" onclick="showAddClient()">+ Neuer Kunde</button>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <div id="client-edit-form" style="display:none;padding:16px;border-bottom:1px solid var(--border)"></div>
+          <div id="client-list-wrap">
+            ${CLIENTS.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border)">
+              <div style="font-weight:600;font-size:13px;flex:1">${c.name}</div>
+              <div style="font-size:12px;color:var(--text3);flex:2">${c.projects.join(', ')}</div>
+              <div style="font-size:12px;color:var(--text3);white-space:nowrap">EUR ${c.rate}/h</div>
+              <button class="btn btn-secondary btn-sm" onclick="showEditClient('${c.id}')">Bearbeiten</button>
+              <button class="btn btn-sm" style="background:var(--red-bg);color:var(--red)" onclick="deleteClient('${c.id}')">Loeschen</button>
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);padding:4px">Aenderungen werden lokal gespeichert.</div>
+    </div>`);
+}
+function saveAdminRateUI(){
+  const val=parseInt(document.getElementById('admin-rate-inp').value||'200');
+  ADMIN_RATE=val; saveAdminRate(val);
+  const el=document.getElementById('admin-rate-msg');
+  if(el){ el.innerHTML='<div class="msg msg-ok">Gespeichert</div>'; setTimeout(()=>{if(el)el.innerHTML='';},2000); }
+}
+let editingClientId=null;
+function showAddClient(){ editingClientId=null; renderClientForm(null); }
+function showEditClient(id){ editingClientId=id; renderClientForm(CLIENTS.find(x=>x.id===id)); }
+function renderClientForm(c){
+  window._editProjs=c?[...c.projects]:[];
+  const wrap=document.getElementById('client-edit-form'); if(!wrap) return;
+  wrap.style.display='block';
+  refreshClientFormHTML(c);
+}
+function refreshClientFormHTML(c){
+  const wrap=document.getElementById('client-edit-form'); if(!wrap) return;
+  const name=document.getElementById('ec-name')?.value||(c?c.name:'');
+  const rate=document.getElementById('ec-rate')?.value||(c?c.rate:400);
+  wrap.innerHTML=`<div style="background:#f0f9ff;border:1px solid var(--accent);border-radius:var(--radius);padding:16px">
+    <div style="font-size:12px;font-weight:600;color:var(--accent);margin-bottom:12px">${c?'Bearbeiten':'Neuer Kunde'}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      <div class="field" style="flex:2;min-width:160px"><div class="label">Name</div>
+        <input type="text" id="ec-name" value="${name}" placeholder="Kundenname"></div>
+      <div class="field" style="width:120px"><div class="label">Rate (EUR/h)</div>
+        <input type="number" id="ec-rate" value="${rate}" min="0"></div>
+    </div>
+    <div class="field" style="margin-bottom:12px"><div class="label">Projekte (Enter)</div>
+      <div id="ec-proj-tags" onclick="document.getElementById('ec-proj-inp').focus()"
+        style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px;border:1px solid var(--border2);border-radius:var(--radius);min-height:36px;background:white;cursor:text">
+        ${(window._editProjs||[]).map(p=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:#e0f0ff;border-radius:20px;font-size:12px">${p}<button onclick="removeProj('${p}')" type="button" style="background:none;border:none;cursor:pointer;font-size:14px;line-height:1;padding:0 2px">x</button></span>`).join('')}
+        <input type="text" id="ec-proj-inp" placeholder="Projekt, dann Enter..."
+          style="border:none;outline:none;font-size:13px;flex:1;min-width:80px;font-family:inherit"
+          onkeydown="handleProjKey(event)">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveClientForm()">Speichern</button>
+      <button class="btn btn-secondary btn-sm" onclick="cancelClientForm()">Abbrechen</button>
+    </div>
+  </div>`;
+}
+function handleProjKey(e){
+  if(e.key==='Enter'||e.key===','){
+    e.preventDefault();
+    const val=e.target.value.trim();
+    if(val&&!window._editProjs.includes(val)){ window._editProjs.push(val); refreshClientFormHTML(null); }
+    e.target.value='';
+  }
+}
+function removeProj(name){
+  window._editProjs=window._editProjs.filter(p=>p!==name); refreshClientFormHTML(null);
+}
+function saveClientForm(){
+  const name=document.getElementById('ec-name')?.value.trim();
+  const rate=parseInt(document.getElementById('ec-rate')?.value||'0');
+  const inp=document.getElementById('ec-proj-inp');
+  if(inp?.value.trim()&&!window._editProjs.includes(inp.value.trim())) window._editProjs.push(inp.value.trim());
+  if(!name){ alert('Bitte Kundenname eingeben.'); return; }
+  const projs=window._editProjs.length?window._editProjs:[name];
+  if(editingClientId){
+    const idx=CLIENTS.findIndex(c=>c.id===editingClientId);
+    if(idx>=0) CLIENTS[idx]={...CLIENTS[idx],name,projects:projs,rate};
+  } else {
+    CLIENTS.push({id:name.toLowerCase().replace(/[^a-z0-9]/g,'_')+Date.now(),name,projects:projs,rate});
+  }
+  saveClients(CLIENTS); editingClientId=null; renderSettings();
+}
+function cancelClientForm(){
+  editingClientId=null;
+  const wrap=document.getElementById('client-edit-form'); if(wrap) wrap.style.display='none';
+}
+function deleteClient(id){
+  if(!confirm('Kunde loeschen?')) return;
+  CLIENTS=CLIENTS.filter(c=>c.id!==id); saveClients(CLIENTS); renderSettings();
+}
+
+// ── Init ──────────────────────────────────────────────
+(async function init(){
+  initMsal();
+  await msal_inst.initialize();
+  try{
+    const response = await msal_inst.handleRedirectPromise();
+    if(response){
+      // Coming back from redirect login
+      document.getElementById('login-screen').style.display='none';
+      await selectUser('christina');
+      return;
+    }
+  }catch(e){ console.error(e); }
+  // Check existing session
+  const accounts = msal_inst.getAllAccounts();
+  if(accounts.length>0){
+    document.getElementById('login-screen').style.display='none';
+    await selectUser('christina');
+  }
+})();
+</script>
+</body>
+</html>
