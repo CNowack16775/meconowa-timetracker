@@ -1241,6 +1241,60 @@ function deleteClient(id){
     await selectUser('christina');
   }
 })();
+
+function showMarkMonthDialog(){
+  const dlg = document.getElementById('mark-month-dialog');
+  if(!dlg) return;
+  if(dlg.style.display !== 'none'){ dlg.style.display='none'; return; }
+  dlg.style.cssText='display:block;background:#fffbe6;border:1px solid #f0c040;border-radius:6px;padding:14px 16px;margin-bottom:16px';
+  dlg.innerHTML=`
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:#9a6b00">Monat abrechnen</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <select id="mark-year" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+        <option value="2024">2024</option>
+        <option value="2025">2025</option>
+        <option value="2026" selected>2026</option>
+      </select>
+      <select id="mark-month" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+        <option value="1">Januar</option><option value="2">Februar</option>
+        <option value="3">März</option><option value="4">April</option>
+        <option value="5">Mai</option><option value="6">Juni</option>
+        <option value="7">Juli</option><option value="8">August</option>
+        <option value="9">September</option><option value="10">Oktober</option>
+        <option value="11">November</option><option value="12">Dezember</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="markMonthInvoiced()">Abrechnen</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('mark-month-dialog').style.display='none'">Abbrechen</button>
+    </div>
+    <div id="mark-month-msg" style="margin-top:8px"></div>`;
+}
+
+async function markMonthInvoiced(){
+  const year  = parseInt(document.getElementById('mark-year').value);
+  const month = parseInt(document.getElementById('mark-month').value);
+  const msg   = document.getElementById('mark-month-msg');
+  const toMark = entries.filter(e =>
+    e.userId===bioUser &&
+    new Date(e.datum).getFullYear()===year &&
+    new Date(e.datum).getMonth()+1===month &&
+    !e.abgerechnet
+  );
+  if(toMark.length===0){
+    msg.innerHTML='<div class="msg msg-ok">Alle Einträge bereits abgerechnet.</div>'; return;
+  }
+  const monthNames=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  if(!confirm(`${toMark.length} Einträge für ${monthNames[month-1]} ${year} als abgerechnet markieren?`)) return;
+  msg.innerHTML='<div style="color:#9a6b00;font-size:13px">Speichert…</div>';
+  toMark.forEach(e=>e.abgerechnet=true);
+  try{
+    await saveAll();
+    msg.innerHTML='<div class="msg msg-ok">✓ Gespeichert!</div>';
+    setTimeout(()=>{ document.getElementById('mark-month-dialog').style.display='none'; renderReports(); },1500);
+  }catch(err){
+    toMark.forEach(e=>e.abgerechnet=false);
+    msg.innerHTML=`<div class="msg msg-err">Fehler: ${err.message}</div>`;
+  }
+}
 </script>
 </body>
 </html>
