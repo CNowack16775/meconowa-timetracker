@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MeCoNowa · Zeiterfassung</title>
+<title>MeCoNowa · Zeiterfassung v3</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 <style>
@@ -638,7 +638,7 @@ function renderOverview(){
                 <td class="num">${fmtE(e.betrag)}</td>
                 <td><span class="tag ${e.abgerechnet?'tag-green':'tag-amber'}">${e.abgerechnet?'Abgerechnet':'Offen'}</span></td>
                 <td style="white-space:nowrap">
-                  <button class="del-btn" onclick="editEntry('${e.id}',${e.rowIndex})" style="color:var(--accent)" title="Bearbeiten">✎</button>
+                  <button class="del-btn" onclick="editEntry('${e.id}',${e.rowIndex})" style="color:var(--accent);padding:3px 8px;" title="Bearbeiten">✎ edit</button>
                   <button class="del-btn" onclick="delEntry('${e.id}',${e.rowIndex})" title="Löschen">×</button>
                 </td>
               </tr>`).join('')}
@@ -734,7 +734,7 @@ function renderEntry(){
                   <td class="num">${fmtH(e.stunden)}</td>
                   <td class="num">${fmtE(e.betrag)}</td>
                   <td style="white-space:nowrap">
-                  <button class="del-btn" onclick="editEntry('${e.id}',${e.rowIndex})" style="color:var(--accent)" title="Bearbeiten">✎</button>
+                  <button class="del-btn" onclick="editEntry('${e.id}',${e.rowIndex})" style="color:var(--accent);padding:3px 8px;" title="Bearbeiten">✎ edit</button>
                   <button class="del-btn" onclick="delEntry('${e.id}',${e.rowIndex})" title="Löschen">×</button>
                 </td>
                 </tr>`).join('')}
